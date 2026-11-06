@@ -1,0 +1,79 @@
+{
+  "graine": 42,
+  "vehicules_par_minute": 60,
+  "vitesse_max_vehicule": [
+    90,
+    130
+  ],
+  "intersections": {
+    "A": {
+      "x": 0,
+      "y": 2
+    },
+    "B": {
+      "x": 2,
+      "y": 2
+    },
+    "C": {
+      "x": 4,
+      "y": 2
+    },
+    "D": {
+      "x": 0,
+      "y": 0
+    },
+    "E": {
+      "x": 2,
+      "y": 0
+    },
+    "F": {
+      "x": 4,
+      "y": 0
+    }
+  },
+  "routes": [
+    {
+      "de": "A",
+      "vers": "B",
+      "longueur": 4000,
+      "limite_vitesse": 50
+    },
+    {
+      "de": "B",
+      "vers": "C",
+      "longueur": 4000,
+      "limite_vitesse": 50
+    },
+    {
+      "de": "D",
+      "vers": "E",
+      "longueur": 4000,
+      "limite_vitesse": 50
+    },
+    {
+      "de": "E",
+      "vers": "F",
+      "longueur": 4000,
+      "limite_vitesse": 50
+    },
+    {
+      "de": "A",
+      "vers": "D",
+      "longueur": 4000,
+      "limite_vitesse": 70
+    },
+    {
+      "de": "C",
+      "vers": "F",
+      "longueur": 4000,
+      "limite_vitesse": 70
+    },
+    {
+      "de": "B",
+      "vers": "E",
+      "longueur": 3000,
+      "limite_vitesse": 90,
+      "nb_voies": 2
+    }
+  ]
+}

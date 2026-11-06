@@ -1,0 +1,454 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\IfFileExists{frenchb.ldf}{\usepackage[french]{babel}}{\usepackage[english]{babel}}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{amsmath}
+
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{TP2 -- simulateur}\fancyhead[R]{\leftmark}\fancyfoot[C]{\thepage}
+\setlength{\headheight}{15pt}
+
+\lstdefinestyle{py}{
+  language=Python, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!40!black}\itshape, stringstyle=\color{orange!70!black},
+  numbers=left, numberstyle=\tiny\color{gray}, breaklines=true, frame=single,
+  backgroundcolor=\color{gray!6}, showstringspaces=false, tabsize=4, columns=fullflexible,
+  literate={é}{{\'e}}1 {è}{{\`e}}1 {ê}{{\^e}}1 {à}{{\`a}}1 {â}{{\^a}}1 {î}{{\^i}}1 {ô}{{\^o}}1 {ù}{{\`u}}1 {û}{{\^u}}1 {ç}{{\c c}}1 {É}{{\'E}}1 {È}{{\`E}}1 {À}{{\`A}}1 {°}{{\textdegree}}1
+}
+\lstdefinestyle{shell}{basicstyle=\ttfamily\footnotesize, frame=single, backgroundcolor=\color{black!5},
+  breaklines=true, columns=fullflexible, language={},
+  literate={é}{{\'e}}1 {è}{{\`e}}1 {ê}{{\^e}}1 {à}{{\`a}}1 {â}{{\^a}}1 {î}{{\^i}}1 {ô}{{\^o}}1 {ù}{{\`u}}1 {û}{{\^u}}1 {ç}{{\c c}}1 {É}{{\'E}}1 {È}{{\`E}}1 {À}{{\`A}}1 {°}{{\textdegree}}1}
+\lstset{style=py}
+
+% Emplacement de capture : image si le fichier existe, sinon cadre vide.
+% \capture{fichier.png}{Légende}{Commande qui produit la capture}
+\newcommand{\capture}[3]{%
+  \begin{figure}[H]\centering
+  \IfFileExists{#1}{\includegraphics[width=\linewidth,height=0.6\textheight,keepaspectratio]{#1}}{%
+    \fbox{\parbox[c][6cm][c]{0.92\linewidth}{\centering\color{gray}\textbf{[ CAPTURE D'ÉCRAN À INSÉRER ]}\\[4pt]
+    \small Fichier attendu : \texttt{\detokenize{#1}}\\ Commande : \texttt{\detokenize{#3}}}}}%
+  \caption{#2}\end{figure}}
+
+\begin{document}
+
+% ============================ PAGE DE GARDE ============================
+\begin{titlepage}
+\centering
+{\large [Nom de l'établissement / Université]}\\[0.4cm]
+{\large [Département / Filière]}\\[3cm]
+{\Huge\bfseries Compte rendu du TP2\par}
+\vspace{0.6cm}
+{\LARGE Documentation et tests unitaires\\d'un package Python\par}
+\vspace{0.6cm}
+{\large Package \texttt{simulateur} : simulation de trafic routier\par}
+\vspace{3cm}
+\begin{tabular}{rl}
+\textbf{Réalisé par :} & [Prénom NOM] \\[4pt]
+\textbf{Encadré par :} & [Nom de l'enseignant] \\[4pt]
+\textbf{Année universitaire :} & 2025--2026 \\
+\end{tabular}
+\vfill
+{\large Novembre 2026}
+\end{titlepage}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ============================ INTRODUCTION ============================
+\chapter*{Introduction}
+\addcontentsline{toc}{chapter}{Introduction}
+Le package \texttt{simulateur} simule le déplacement de véhicules sur un réseau routier modélisé
+par un graphe. Avant de le distribuer, ce TP demande de \textbf{documenter} le code, de rédiger un
+\textbf{README}, de mettre en place une suite de \textbf{tests unitaires avec pytest}, puis de
+\textbf{corriger les anomalies} que ces tests révèlent.
+
+Ce compte rendu présente successivement :
+\begin{enumerate}
+  \item l'organisation du package et le travail de documentation (docstrings, README, site Sphinx) ;
+  \item la conception des tests : cas nominaux, cas limites, cas invalides et cohérence ;
+  \item l'exécution des tests avant et après correction, avec le décompte des tests réussis et échoués ;
+  \item la liste des anomalies détectées et des corrections effectuées.
+\end{enumerate}
+
+% ============================ CHAPITRE 1 ============================
+\chapter{Le package \texttt{simulateur}}
+\section{Organisation}
+Le code initial, réparti en plusieurs dossiers, a été réorganisé selon la structure demandée par
+l'énoncé. Un module interne \texttt{\_\allowbreak{}validation.py} a été ajouté pour centraliser les contrôles de
+paramètres (même type d'exception partout, sans duplication de code).
+
+\begin{lstlisting}[style=shell,caption={Structure du projet}]
+simulateur/
+|-- simulateur/
+|   |-- __init__.py        API publique du package
+|   |-- _validation.py     contrôles de type et de valeur (interne)
+|   |-- vehicule.py        classe Vehicule
+|   |-- route.py           classe Route
+|   `-- simulation.py      ReseauRoutier, Analyseur, Simulation
+|-- tests/
+|   |-- conftest.py        fixtures partagées
+|   |-- test_vehicule.py
+|   |-- test_route.py
+|   `-- test_simulation.py
+|-- docs/              documentation Sphinx (conf.py, *.rst)
+|-- data/config_reseau.json
+|-- exemples/exemple_simple.py
+|-- README.md
+`-- pyproject.toml
+\end{lstlisting}
+
+\capture{01_structure.png}{Arborescence réelle du projet}{python generer_captures.py}
+
+\section{Rôle de chaque module}
+\begin{table}[H]\centering
+\begin{tabular}{@{}l p{4.2cm} p{6.3cm}@{}}
+\toprule
+\textbf{Module} & \textbf{Classes} & \textbf{Rôle} \\ \midrule
+\texttt{vehicule.py} & \texttt{Vehicule} & Itinéraire, position, vitesse ; avance pendant un pas de temps et change de route \\
+\texttt{route.py} & \texttt{Route} & Tronçon orienté : capacité, occupation, vitesse autorisée, accueil des véhicules \\
+\texttt{simulation.py} & \texttt{ReseauRoutier}, \texttt{Analyseur}, \texttt{Simulation} & Graphe et Dijkstra ; statistiques et congestion ; boucle de simulation et lecture de la configuration \\
+\texttt{\_\allowbreak{}validation.py} & (fonctions) & Validation de nombres, d'entiers et de textes \\ \bottomrule
+\end{tabular}
+\caption{Modules du package}
+\end{table}
+
+\section{Règles du simulateur}
+Les tests s'appuient sur les règles suivantes.
+\begin{itemize}
+  \item Capacité d'une route : $\max\!\bigl(1,\ \text{longueur}\times\text{nb\_\allowbreak{}voies}/25\bigr)$ ; occupation $=$ véhicules / capacité.
+  \item Vitesse autorisée : $v=v_{\text{limite}}\times\max(0{,}1,\ 1-\text{occupation})$.
+  \item Vitesse réelle d'un véhicule : $\min(v_{\max},\,v)$ ; distance $=\dfrac{v}{3{,}6}\Delta t$.
+  \item Itinéraire : chemin au temps de parcours théorique minimal (Dijkstra).
+  \item Un véhicule se trouve toujours sur la route prévue par son itinéraire, à une position comprise entre $0$ et la longueur de la route.
+\end{itemize}
+
+% ============================ CHAPITRE 2 ============================
+\chapter{Documentation}
+\section{Docstrings}
+Tous les éléments du package sont documentés : \textbf{49 modules, classes, fonctions et méthodes publics}
+(vérifié automatiquement avec le module \texttt{ast}, aucun manquant). Le format retenu est le style Google :
+\begin{itemize}
+  \item \textbf{module} : objectif du fichier ;
+  \item \textbf{classe} : rôle, responsabilités et liste des attributs avec leur type ;
+  \item \textbf{fonction / méthode} : objectif, \texttt{Args} (types), \texttt{Returns}, \texttt{Raises}.
+\end{itemize}
+Les commentaires dans le code ont été conservés uniquement là où un point mérite explication
+(par exemple la conversion km/h $\to$ m/s ou le report de la partie fractionnaire de véhicules à créer).
+
+\begin{lstlisting}[caption={Exemple de docstring complète (\texttt{route.py})}]
+def mettre_a_jour_vehicules(self, delta_t):
+    """Fait avancer tous les véhicules de la route pendant ``delta_t`` secondes.
+
+    La vitesse autorisée est calculée une seule fois, avec la charge du début de pas.
+
+    Args:
+        delta_t (float): Durée du pas en secondes, positive ou nulle.
+
+    Returns:
+        list[Vehicule]: Véhicules ayant atteint ou dépassé la fin de la route.
+
+    Raises:
+        TypeError: Si ``delta_t`` n'est pas un nombre.
+        ValueError: Si ``delta_t`` est négatif.
+    """
+\end{lstlisting}
+
+\capture{02_docstring_help.png}{Documentation lue avec \texttt{help()}}{python -c "from simulateur import Route; help(Route.vitesse_autorisee)"}
+\capture{03_docstring_module.png}{Docstring de module affichée}{python -c "import simulateur.route as m; print(m.__doc__)"}
+
+\section{Génération de la documentation avec Sphinx}
+Les docstrings ne sont pas seulement lisibles dans le code : \textbf{Sphinx} les transforme en un site
+HTML navigable (référence de l'API, index, recherche). La documentation est dans le dossier \texttt{docs/}.
+
+\begin{table}[H]\centering
+\begin{tabular}{@{}l p{10cm}@{}}
+\toprule
+\textbf{Fichier} & \textbf{Rôle} \\ \midrule
+\texttt{docs/conf.py} & Configuration : chemin du package, extensions, thème, langue française \\
+\texttt{docs/index.rst} & Page d'accueil et sommaire (\texttt{toctree}) \\
+\texttt{docs/utilisation.rst} & Installation, exemples, erreurs levées \\
+\texttt{docs/api.rst} & Référence de l'API, générée avec \texttt{automodule} \\
+\texttt{docs/tests.rst} & Commandes de test \\
+\texttt{docs/Makefile}, \texttt{make.bat} & Commande \texttt{make html} (Linux/macOS, Windows) \\ \bottomrule
+\end{tabular}
+\caption{Fichiers de la documentation Sphinx}
+\end{table}
+
+Trois extensions sont activées dans \texttt{conf.py} :
+\begin{itemize}
+  \item \texttt{sphinx.ext.autodoc} : extrait la documentation des docstrings ;
+  \item \texttt{sphinx.ext.napoleon} : comprend le style Google (\texttt{Args}, \texttt{Returns}, \texttt{Raises}) utilisé dans le package ;
+  \item \texttt{sphinx.ext.viewcode} : ajoute un lien vers le code source de chaque fonction.
+\end{itemize}
+
+\begin{lstlisting}[caption={Extrait de \texttt{docs/api.rst}}]
+Module ``route``
+----------------
+
+.. automodule:: simulateur.route
+   :members:
+\end{lstlisting}
+
+\begin{lstlisting}[style=shell,caption={Génération de la documentation}]
+pip install -e ".[docs]"
+cd docs
+make html                 # Windows : make.bat html
+# ouvrir docs/_build/html/index.html
+\end{lstlisting}
+
+\capture{11_sphinx_build.png}{Compilation de la documentation avec \texttt{sphinx-build}}{python -m sphinx -b html docs docs/_build/html}
+\capture{12_sphinx_index.png}{Page d'accueil de la documentation HTML}{ouvrir docs/_build/html/index.html}
+\capture{13_sphinx_api.png}{Référence de l'API générée depuis les docstrings}{ouvrir docs/_build/html/api.html}
+
+\section{Fichier README.md}
+Le \texttt{README.md} contient : la présentation du package, ses fonctionnalités, les prérequis
+(Python $\ge 3.9$, aucune dépendance d'exécution), la procédure d'installation
+(\texttt{pip install -e ".[dev]"}), un exemple d'utilisation, le format du fichier de configuration,
+les exceptions levées et les commandes de test. Une section du README explique aussi comment générer la documentation Sphinx. Un fichier \texttt{pyproject.toml} décrit le package
+et la configuration de pytest.
+
+\begin{lstlisting}[style=shell,caption={Installation et lancement des tests}]
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest -v
+\end{lstlisting}
+
+\capture{09_exemple.png}{Exemple d'utilisation du package}{python exemples/exemple_simple.py}
+
+% ============================ CHAPITRE 3 ============================
+\chapter{Conception des tests unitaires}
+\section{Méthode}
+Les tests ont été écrits \emph{à partir des spécifications de l'énoncé} puis exécutés d'abord sur le
+code d'origine. Chaque échec ainsi observé révèle donc une validation manquante ou un défaut réel,
+corrigé ensuite dans le package. Un même fichier de tests sert avant et après correction, ce qui
+permet de mesurer l'effet des corrections et de vérifier l'absence de régression.
+
+\section{Les quatre types de tests}
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}p{2.4cm} p{3.2cm} p{8.3cm}@{}}
+\toprule
+\textbf{Type} & \textbf{Module} & \textbf{Exemples de tests} \\ \midrule
+\multirow{3}{*}{Cas nominal}
+ & \texttt{vehicule} & création, conversion km/h $\to$ m/s (3 jeux de données), temps de parcours, changement de route \\
+ & \texttt{route} & capacité et occupation, ajout/retrait d'un véhicule, véhicules arrivés en bout de route \\
+ & \texttt{simulation} & Dijkstra, construction depuis la configuration, simulation de 30 tours, génération selon le débit \\ \midrule
+\multirow{3}{*}{Cas limite}
+ & \texttt{vehicule} & vitesse nulle, durée nulle, plafonnement par $v_{\max}$, itinéraire d'une seule route \\
+ & \texttt{route} & route vide, pleine (40/40) et surchargée (60/40), capacité minimale de 1, plancher de vitesse à 10\,\% \\
+ & \texttt{simulation} & 0 tour, débit nul, chemin vers soi-même, trajet impossible \\ \midrule
+\multirow{3}{*}{Cas invalide}
+ & \texttt{vehicule} & $v_{\max}\le 0$, itinéraire vide, départ négatif, identifiant vide, mauvais type, $\Delta t<0$ \\
+ & \texttt{route} & longueur ou limite $\le 0$, voies $\in\{0,-1,1{,}5\}$, origine $=$ destination, nom vide, mauvais type \\
+ & \texttt{simulation} & \texttt{n\_\allowbreak{}tours}$<0$, \texttt{delta\_\allowbreak{}t}$\le 0$, débit négatif, plage de vitesse incohérente, fichier absent, doublons, intersection inconnue \\ \midrule
+\multirow{3}{*}{Cohérence}
+ & \texttt{vehicule} & vitesse $\le\min(v_{\max}, v_{\text{auto}})$, position jamais décroissante \\
+ & \texttt{route} & vitesse décroissante avec la charge, toujours entre 10\,\% et 100\,\% de la limite \\
+ & \texttt{simulation} & conservation des véhicules, reproductibilité (graine), position dans $[0,\text{longueur}]$ à chaque tour, itinéraire respecté \\ \bottomrule
+\end{tabular}
+\caption{Organisation des tests par type et par module}
+\end{table}
+
+\section{Tests de la simulation}
+Les quatre points demandés par l'énoncé sont couverts :
+\begin{itemize}
+  \item \textbf{exécution valide} : \texttt{test\_\allowbreak{}simulation\_\allowbreak{}nominale} (30 tours, historique de 30 entrées, temps simulé 1800 s) ;
+  \item \textbf{paramètres invalides} : \texttt{n\_\allowbreak{}tours}, \texttt{delta\_\allowbreak{}t}, débit, plage de vitesse, fichier ;
+  \item \textbf{règles de déplacement} : \texttt{test\_\allowbreak{}vehicules\_\allowbreak{}evoluent\_\allowbreak{}selon\_\allowbreak{}les\_\allowbreak{}regles\_\allowbreak{}de\_\allowbreak{}deplacement}
+        (progression sur la route, vitesse $\le$ limite et $\le v_{\max}$) ;
+  \item \textbf{contraintes du réseau} : \texttt{test\_\allowbreak{}contraintes\_\allowbreak{}du\_\allowbreak{}reseau\_\allowbreak{}respectees\_\allowbreak{}a\_\allowbreak{}chaque\_\allowbreak{}tour}
+        (60 tours, position dans la route, itinéraire respecté, aucun doublon).
+\end{itemize}
+
+\begin{lstlisting}[caption={Fixtures et test paramétré (\texttt{tests/})}]
+@pytest.fixture
+def reseau_abc():
+    r = ReseauRoutier()
+    for nom, x in (("A", 0), ("B", 1), ("C", 2)):
+        r.ajouter_intersection(nom, x, 0)
+    r.ajouter_route(Route("A-B", "A", "B", 1000, 50))
+    r.ajouter_route(Route("B-C", "B", "C", 1000, 50))
+    return r
+
+@pytest.mark.parametrize("nb_veh, attendue", [
+    (0, 50.0), (10, 37.5), (20, 25.0), (40, 5.0), (80, 5.0)])
+def test_vitesse_selon_occupation(nb_veh, attendue):
+    r = Route("A-B", "A", "B", 1000, 50)
+    remplir(r, nb_veh)
+    assert r.vitesse_autorisee() == pytest.approx(attendue)
+
+@pytest.mark.parametrize("longueur", [0, -100])
+def test_longueur_non_positive_refusee(longueur):
+    with pytest.raises(ValueError):
+        Route("A-B", "A", "B", longueur, 50)
+\end{lstlisting}
+
+% ============================ CHAPITRE 4 ============================
+\chapter{Exécution et analyse des résultats}
+\section{Commandes}
+\begin{lstlisting}[style=shell]
+pytest -v                          # tous les tests
+pytest tests/test_vehicule.py -v   # un module
+pytest tests/test_route.py -v
+pytest tests/test_simulation.py -v
+\end{lstlisting}
+
+\section{Avant correction (code d'origine)}
+Les 95 tests ont été lancés sur le code d'origine réorganisé mais non modifié.
+Un test ne se termine jamais (boucle infinie, anomalie S1) : il a dû être interrompu par un délai maximal.
+
+\begin{table}[H]\centering
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Module} & \textbf{Tests} & \textbf{Réussis} & \textbf{Échoués} & \textbf{Bloqués} \\ \midrule
+\texttt{test\_\allowbreak{}vehicule.py} & 25 & 17 & 8 & 0 \\
+\texttt{test\_\allowbreak{}route.py} & 28 & 17 & 11 & 0 \\
+\texttt{test\_\allowbreak{}simulation.py} & 42 & 32 & 9 & 1 \\ \midrule
+\textbf{Total} & \textbf{95} & \textbf{66} & \textbf{28} & \textbf{1} \\ \bottomrule
+\end{tabular}
+\caption{Résultats avant correction}
+\end{table}
+
+\capture{00_pytest_avant.png}{Exécution sur le code d'origine : 28 échecs, 66 réussites, 1 test bloqué}{pytest -q (code d'origine)}
+
+\section{Après correction}
+\begin{table}[H]\centering
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Module} & \textbf{Tests} & \textbf{Réussis} & \textbf{Échoués} \\ \midrule
+\texttt{test\_\allowbreak{}vehicule.py} & 25 & 25 & 0 \\
+\texttt{test\_\allowbreak{}route.py} & 28 & 28 & 0 \\
+\texttt{test\_\allowbreak{}simulation.py} & 42 & 42 & 0 \\ \midrule
+\textbf{Total} & \textbf{95} & \textbf{95} & \textbf{0} \\ \bottomrule
+\end{tabular}
+\caption{Résultats après correction}
+\end{table}
+
+\capture{04_pytest_complet.png}{\texttt{pytest -v} après correction : 95 tests réussis}{pytest -v}
+\capture{05_pytest_vehicule.png}{Tests du module \texttt{vehicule}}{pytest tests/test_vehicule.py -v}
+\capture{06_pytest_route.png}{Tests du module \texttt{route}}{pytest tests/test_route.py -v}
+\capture{07_pytest_simulation.png}{Tests du module \texttt{simulation}}{pytest tests/test_simulation.py -v}
+\capture{08_pytest_resume.png}{Résumé final}{pytest -q}
+
+\section{Absence de régression}
+Une simulation de 60 tours avec la configuration fournie donne exactement le même résumé qu'avant
+les corrections (36,09\,km/h de vitesse moyenne, 2\,867 trajets terminés, 733 véhicules en route,
+congestion sur \texttt{F-E} et \texttt{D-E}). Les corrections n'ont donc pas modifié le comportement
+sur des données valides.
+
+% ============================ CHAPITRE 5 ============================
+\chapter{Anomalies détectées et corrections}
+Les anomalies sont de deux natures : des \emph{validations absentes} (le code acceptait silencieusement des
+valeurs absurdes) et des \emph{défauts de comportement}, plus graves (S1 et S5).
+
+\section{Défauts de comportement}
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{3.8cm} >{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}p{4.0cm}@{}}
+\toprule
+\textbf{N°} & \textbf{Où} & \textbf{Constat} & \textbf{Correction} \\ \midrule
+S1 & \texttt{ReseauRoutier.\allowbreak{}generer\_\allowbreak{}vehicule} & \textbf{Boucle infinie} (\texttt{while True}) si aucun couple d'intersections n'est relié par un chemin & Nouvelle méthode \texttt{\_\allowbreak{}tirer\_\allowbreak{}trajet} : essais aléatoires bornés, puis parcours exhaustif des couples ; \texttt{ValueError} si aucun trajet \\
+S5 & \texttt{ReseauRoutier.\allowbreak{}mettre\_\allowbreak{}a\_\allowbreak{}jour} & Avec un grand pas de temps, un véhicule pouvait rester à une position supérieure à la longueur de sa route (le dépassement couvrant plusieurs routes courtes n'était traité qu'une fois) & Boucle \texttt{while} : le véhicule traverse autant de routes que nécessaire dans le même pas \\ \bottomrule
+\end{tabular}
+\caption{Anomalies de comportement}
+\end{table}
+
+\begin{lstlisting}[caption={Correction de S5 : passage de plusieurs routes en un seul pas}]
+for route, v in sortants:
+    depassement = v.position - route.longueur
+    while True:
+        suivante = v.nom_route_suivante()
+        if suivante is None:                       # fin de l'itinéraire
+            route.retirer_vehicule(v)
+            v.temps_arrivee = temps
+            v.vitesse = 0.0
+            self.vehicules_arrives.append(v)
+            break
+        nouvelle = self.routes[suivante]
+        v.changer_de_route(nouvelle, depassement)
+        if v.position < nouvelle.longueur:
+            break                                  # reste sur cette route
+        depassement = v.position - nouvelle.longueur
+        route = nouvelle
+\end{lstlisting}
+
+\section{Validations manquantes}
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{3.9cm} >{\raggedright\arraybackslash}p{4.4cm} >{\raggedright\arraybackslash}p{3.6cm}@{}}
+\toprule
+\textbf{N°} & \textbf{Où} & \textbf{Constat (avant)} & \textbf{Comportement (après)} \\ \midrule
+V1 & \texttt{Vehicule()} & \texttt{vitesse\_\allowbreak{}max} $\le 0$ accepté (2 tests) & \texttt{ValueError} \\
+V2 & \texttt{Vehicule()} & itinéraire vide accepté & \texttt{ValueError} \\
+V3 & \texttt{Vehicule()} & \texttt{temps\_\allowbreak{}depart} négatif accepté & \texttt{ValueError} \\
+V4 & \texttt{Vehicule()} & identifiant vide accepté & \texttt{ValueError} \\
+V5 & \texttt{Vehicule()} & \texttt{vitesse\_\allowbreak{}max="rapide"} non détecté à la création & \texttt{TypeError} \\
+V6 & \texttt{Vehicule.\allowbreak{}avancer} & \texttt{delta\_\allowbreak{}t} négatif : le véhicule \emph{reculait} & \texttt{ValueError} \\
+V7 & \texttt{Vehicule.\allowbreak{}avancer} & vitesse autorisée négative acceptée & \texttt{ValueError} \\ \midrule
+R1 & \texttt{Route()} & longueur $\le 0$ acceptée (2 tests) & \texttt{ValueError} \\
+R2 & \texttt{Route()} & limite de vitesse $\le 0$ acceptée (2 tests) ; la division de Dijkstra pouvait planter & \texttt{ValueError} \\
+R3 & \texttt{Route()} & \texttt{nb\_\allowbreak{}voies} $=0$, $-1$ ou $1{,}5$ accepté (3 tests) & \texttt{ValueError} / \texttt{TypeError} \\
+R4 & \texttt{Route()} & origine $=$ destination acceptée & \texttt{ValueError} \\
+R5 & \texttt{Route()} & nom vide accepté & \texttt{ValueError} \\
+R6 & \texttt{Route()} & \texttt{longueur="longue"} : erreur obscure (\texttt{ValueError: could not convert...}) & \texttt{TypeError} explicite \\
+R7 & \texttt{Route.\allowbreak{}mettre\_\allowbreak{}a\_\allowbreak{}jour\_\allowbreak{}vehicules} & \texttt{delta\_\allowbreak{}t} négatif accepté & \texttt{ValueError} \\ \midrule
+S2 & \texttt{plus\_\allowbreak{}court\_\allowbreak{}chemin} & intersection inconnue : résultat silencieux (\texttt{None} ou \texttt{[]}) & \texttt{ValueError} \\
+S3 & \texttt{ajouter\_\allowbreak{}route} & route en double : l'ancienne était écrasée avec ses véhicules & \texttt{ValueError} \\
+S4 & \texttt{ajouter\_\allowbreak{}intersection} & intersection en double écrasée & \texttt{ValueError} \\
+S6 & \texttt{lancer\_\allowbreak{}simulation} & \texttt{n\_\allowbreak{}tours} négatif : 0 tour exécuté sans erreur & \texttt{ValueError} \\
+S7 & \texttt{lancer\_\allowbreak{}simulation} & \texttt{delta\_\allowbreak{}t} $\le 0$ accepté (2 tests) & \texttt{ValueError} \\
+S8 & \texttt{Simulation()} & débit \texttt{vehicules\_\allowbreak{}par\_\allowbreak{}minute} négatif accepté & \texttt{ValueError} \\
+S9 & \texttt{Simulation()} & plage de vitesse \texttt{[130, 90]} acceptée & \texttt{ValueError} \\ \bottomrule
+\end{tabular}
+\caption{Validations ajoutées}
+\end{table}
+
+\paragraph{Bilan.} Ces anomalies correspondent aux \textbf{28 échecs} et au \textbf{test bloqué} du
+tableau avant correction (V : 8 échecs, R : 11, S : 9 échecs et 1 blocage). Toutes les
+validations passent par les trois fonctions de \texttt{\_\allowbreak{}validation.py}.
+
+\begin{lstlisting}[caption={Exemple de validation (\texttt{route.py})}]
+self.longueur = verifier_nombre("longueur", longueur, strictement_positif=True)
+self.limite_vitesse = verifier_nombre("limite_vitesse", limite_vitesse,
+                                      strictement_positif=True)
+self.nb_voies = verifier_entier("nb_voies", nb_voies, minimum=1)
+\end{lstlisting}
+
+\capture{10_erreur_validation.png}{Message d'erreur clair après correction (\texttt{Route} avec longueur négative)}{python -c "from simulateur import Route; Route('A-B','A','B',-100,50)"}
+
+\section{Choix de conception}
+\begin{itemize}
+  \item \textbf{Types} : un mauvais type lève \texttt{TypeError} ; une valeur hors domaine lève \texttt{ValueError}.
+        Les booléens sont refusés comme nombres (sinon \texttt{True} passerait pour $1$).
+  \item Un test écrit trop strictement (\texttt{nb\_\allowbreak{}voies=1.5} attendu en \texttt{ValueError}) a été corrigé : un
+        décimal est un mauvais \emph{type}, donc \texttt{TypeError}. Le code était correct, la spécification du test ne l'était pas.
+  \item Les paramètres \texttt{n\_\allowbreak{}tours} décimal ou texte levaient déjà une \texttt{TypeError} (par \texttt{range}) :
+        ce n'était pas une anomalie.
+\end{itemize}
+
+% ============================ CONCLUSION ============================
+\chapter*{Conclusion}
+\addcontentsline{toc}{chapter}{Conclusion}
+Le package \texttt{simulateur} est désormais entièrement documenté (docstrings complètes, README, \texttt{pyproject.toml}) et
+validé par \textbf{95 tests pytest, tous réussis}. Écrire les tests à partir des spécifications avant de corriger
+a mis en évidence \textbf{29 problèmes} sur le code d'origine : 28 tests en échec et un test bloqué, soit
+deux défauts réels (une boucle infinie et un dépassement de route) et des validations absentes sur les
+paramètres. Le comportement sur des données valides est inchangé.
+
+\paragraph{Pistes d'amélioration.}
+mesurer la couverture avec \texttt{pytest-cov}, ajouter une intégration continue, et tester
+l'affichage graphique et l'export, hors du périmètre de ce TP.
+
+\end{document}
